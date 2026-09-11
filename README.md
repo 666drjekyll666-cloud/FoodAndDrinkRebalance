@@ -35,7 +35,7 @@ Mods that change the same food/recipe records or the same manual crafting-time p
 
 ## Status
 
-Current test build: **1.2.0**.
+Current stable version: **1.2.0**.
 
 ## Development
 

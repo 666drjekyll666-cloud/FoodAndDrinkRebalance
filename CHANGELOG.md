@@ -1,13 +1,13 @@
 # Changelog
 
-Only accepted user-facing releases are listed as stable. The current 1.2.0 entry remains a candidate until player acceptance.
+Only accepted user-facing releases are listed as stable.
 
-## 1.2.0 — public identity migration candidate
+## 1.2.0 — accepted public release
 
-- Renames the public project and DLL to **Food & Drink Rebalance** / `FoodAndDrinkRebalance.dll`.
-- Preserves the existing BepInEx GUID for plugin identity and compatibility.
-- Preserves the accepted 1.1.6 gameplay behavior; no balance or runtime mechanic changes are intended.
-- Moves stable distribution to the clean public repository and GitHub Releases after acceptance.
+- Renamed the public project and DLL to **Food & Drink Rebalance** / `FoodAndDrinkRebalance.dll`.
+- Preserved the existing BepInEx GUID for plugin identity and compatibility.
+- Preserved the accepted 1.1.6 gameplay behavior; no balance or runtime mechanic changes were introduced by the migration.
+- Established the clean public repository as the stable project home.
 
 ## 1.1.6 — accepted legacy stable baseline
 
