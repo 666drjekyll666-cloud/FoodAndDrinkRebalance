@@ -1,0 +1,22 @@
+# Build output
+bin/
+obj/
+artifact/
+artifacts/
+
+# Local IDE/tooling
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Local game / diagnostic output
+BepInEx/
+LogOutput.log
+Player.log
+*.tmp
+*.bak
+
+# Packaged downloads
+*.zip

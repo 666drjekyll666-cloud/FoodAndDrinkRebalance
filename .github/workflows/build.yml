@@ -1,0 +1,67 @@
+name: Build Food & Drink Rebalance
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev/1.2.0
+    paths:
+      - 'src/**'
+      - 'FoodAndDrinkRebalance.csproj'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: food-and-drink-rebalance-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Read project version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's:.*<Version>\([^<]*\)</Version>.*:\1:p' FoodAndDrinkRebalance.csproj | head -n 1)"
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Restore
+        run: dotnet restore FoodAndDrinkRebalance.csproj
+
+      - name: Build Release
+        run: dotnet build FoodAndDrinkRebalance.csproj -c Release --no-restore --nologo
+
+      - name: Stage versioned DLL
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          source='bin/Release/FoodAndDrinkRebalance.dll'
+          test -f "$source"
+          mkdir -p artifacts
+          target="artifacts/Food & Drink Rebalance ${{ steps.version.outputs.version }}.dll"
+          cp "$source" "$target"
+          hash="$(sha256sum "$target" | awk '{print $1}')"
+          echo "SHA-256: $hash"
+          echo "sha256=$hash" >> "$GITHUB_OUTPUT"
+
+      - name: Upload candidate DLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: FoodAndDrinkRebalance-${{ steps.version.outputs.version }}
+          path: artifacts/Food & Drink Rebalance ${{ steps.version.outputs.version }}.dll
+          if-no-files-found: error
+          retention-days: 7
