@@ -2,12 +2,6 @@ name: Build Food & Drink Rebalance
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - dev/1.2.0
-    paths:
-      - 'src/**'
-      - 'FoodAndDrinkRebalance.csproj'
 
 permissions:
   contents: read

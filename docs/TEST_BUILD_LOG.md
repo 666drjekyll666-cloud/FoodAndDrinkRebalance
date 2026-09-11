@@ -15,6 +15,8 @@ Numbered binaries handed to the user are immutable. Candidate and accepted entri
 - Runtime changes intended: none.
 - Preserved: BepInEx GUID, gameplay values, buffs, patch targets, localization, validation behavior, and craft exclusions.
 - Changed: public plugin name, project/assembly/DLL name, and version 1.1.6 -> 1.2.0.
-- Candidate source/build: pending clean public CI.
+- Candidate source commit: `95c96cce8d1e0d3c9f5e3208bc4deb0bce652a40`; frozen as `candidate/1.2.0`.
+- CI: run `34621534690`; artifact `FoodAndDrinkRebalance-1.2.0` (`10272985482`); build succeeded with 0 warnings / 0 errors.
+- Candidate DLL SHA-256: `8faafa011b79376bc3687b879a7c4ff93d38b89c8f76434cd54df2b33c729a1c`.
 - Smoke test: confirm `Food & Drink Rebalance 1.2.0` loads cleanly and reaches the ready log; check representative accepted behavior such as Omelette/Well Fed, Wine/Inebriated, Fried Egg Sobering, or Green Jelly Speed.
-- Result: pending build.
+- Result: clean candidate ready for in-game smoke test.
