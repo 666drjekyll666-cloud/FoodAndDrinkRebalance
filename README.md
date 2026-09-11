@@ -36,11 +36,3 @@ Mods that change the same food/recipe records or the same manual crafting-time p
 ## Status
 
 Current stable version: **1.2.0**.
-
-## Development
-
-- Canonical project: `FoodAndDrinkRebalance.csproj`
-- Runtime source: `src/GKFoodRebalancePlugin.cs`
-- Verified runtime facts: `docs/VERIFIED_RUNTIME_DATA.md`
-- Build/test history: `docs/TEST_BUILD_LOG.md`
-- Project rules: `AGENTS.md`
