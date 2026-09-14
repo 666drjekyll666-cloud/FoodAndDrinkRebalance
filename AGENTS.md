@@ -31,8 +31,9 @@ Public migration 1.2.0 is intended to preserve the accepted 1.1.6 gameplay behav
 - Runtime work normally uses `dev/X.Y.Z`.
 - Freeze a handed candidate at `candidate/X.Y.Z` and an accepted source at `baseline/X.Y.Z-accepted`.
 - Every handed DLL is immutable and tied to an exact source SHA and CI artifact.
-- The user prefers a raw versioned DLL, not a ZIP.
-- Stable public binaries are published through GitHub Releases using the exact accepted artifact after SHA-256 verification; do not rebuild accepted bytes merely for release publication.
+- Candidate/test handoffs should be a ready raw versioned DLL, not a ZIP.
+- Stable GitHub Release assets should use the canonical installed filename `FoodAndDrinkRebalance.dll`; a filename-only packaging rename of the accepted bytes does not create a new code version.
+- Stable public binaries are published through GitHub Releases using the exact accepted artifact bytes after SHA-256 verification; do not rebuild accepted bytes merely for release publication.
 
 ## CI
 

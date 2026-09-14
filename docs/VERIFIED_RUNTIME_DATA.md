@@ -8,6 +8,19 @@ The original read-only diagnostic exposed 2,102 `CraftDefinition` rows, 1,157 `I
 
 Recipe ingredients are in `CraftDefinition.needs`; outputs are in `CraftDefinition.output`. Food energy may be represented both in `params_on_use` and `on_use_expressions`; production changes keep both synchronized where applicable. Accepted beet-slice HP uses `params_on_use._hp`.
 
+## Localization coverage contract
+
+Production localization is event-bound and uses the game's active language state rather than polling:
+
+- `GameSettings._cur_lng` is read as the current language code; the production helper lowercases it and normalizes `-` to `_`.
+- `GJL.LoadLanguageResource` is patched with a postfix so custom strings are re-injected after the game loads or changes a language.
+- The custom strings are written into the active `GJL.cur_lng.dict` dictionary.
+- Graveyard Keeper exposes 11 supported interface languages. Current production source covers all 11: English (`en`, default fallback), French (`fr`), German (`de`), Simplified Chinese (`zh_cn`, including normalized `zh-cn`), Spanish (`es`), Brazilian Portuguese (`pt_br`, including normalized `pt-br`), Korean (`ko`), Japanese (`ja`), Russian (`ru`), Italian (`it`), and Polish (`pl`).
+- `Well Fed`, `Inebriated`, `Sobering`, and the generic `Speed` name have per-language strings for the ten non-English languages plus English fallback.
+- Green Jelly's Speed description preferentially reuses the current-language vanilla `pot_speed_d` string, then `buff_pot_speed_d`, with English only as a final missing-key fallback.
+
+Historical accepted player evidence verified the localization injection path and visible custom-buff presentation in Russian. The all-11 statement is a static source-coverage guarantee, not a claim that every translation has been separately native-speaker or in-game QA tested.
+
 ## Alcohol IDs and vanilla contract
 
 ### Red wine

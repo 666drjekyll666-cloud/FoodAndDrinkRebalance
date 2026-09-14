@@ -68,7 +68,8 @@ jobs:
         run: |
           set -euo pipefail
           tag='${{ steps.release.outputs.tag }}'
-          asset="release-asset/${{ steps.release.outputs.asset_name }}"
+          accepted_asset="release-asset/${{ steps.release.outputs.asset_name }}"
+          release_asset='release-asset/FoodAndDrinkRebalance.dll'
           source_sha='${{ steps.release.outputs.source_sha }}'
           title='${{ steps.release.outputs.title }}'
           expected='${{ steps.release.outputs.sha256 }}'
@@ -78,9 +79,16 @@ jobs:
             exit 0
           fi
 
+          cp "$accepted_asset" "$release_asset"
+          actual="$(sha256sum "$release_asset" | awk '{print $1}')"
+          if [ "$actual" != "$expected" ]; then
+            echo "Stable-asset SHA-256 mismatch after filename-only packaging: expected $expected, got $actual" >&2
+            exit 1
+          fi
+
           printf 'Stable accepted release.\n\nSHA-256: %s\n' "$expected" > release-notes.md
 
-          gh release create "$tag" "$asset" \
+          gh release create "$tag" "$release_asset" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$source_sha" \
             --title "$title" \
