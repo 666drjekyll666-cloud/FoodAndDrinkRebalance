@@ -40,8 +40,17 @@ Numbered binaries handed to the user are immutable. Candidate and accepted entri
 - Handed raw DLL: `Food & Drink Rebalance 1.2.1.dll`, 44,544 bytes, SHA-256 `bc0550cdc0f11a690b86cf85e34303881b168bc1722c38e34c5a81cca860f84a`.
 - Requested runtime acceptance: compare one reasonably long eligible manual workstation craft without/with Well Fed (target approximately x2); confirm equal total Keeper Energy; confirm one worker/zombie or passive/auto production path is unaffected; confirm one excluded world/garden/removal-style action is unaffected. Report any Well Fed hook warnings from the BepInEx log.
 - Buff save/reload: not repeated for this candidate because 1.2.1 does not change buff definitions, `PlayerBuff.end_time`, native add/remove lifecycle, or serialization-related code. Uninstall/missing-custom-definition behavior remains a separate evidence gap, not a change in this candidate.
-- Player result: **pending**.
-- Result: **candidate only; do not merge or publish before player acceptance**.
+- Player runtime evidence, 2026-09-19 (diagnostic build based on the exact 1.2.1 candidate runtime source):
+  - same manual craft `wooden_plank_3` at `mf_workbench_2`, Well Fed inactive -> eligible, `applied=false`, multiplier 1.00, `delta_time` unchanged (0.0101 -> 0.0101);
+  - same manual craft with Well Fed active -> eligible, `applied=true`, multiplier 2.00, `delta_time` doubled (0.0085 -> 0.0170);
+  - second eligible manual craft `flour_from_wheat` at `cooking_table_2` with Well Fed -> `applied=true`, multiplier 2.00 (0.0083 -> 0.0167);
+  - zombie running the same `wooden_plank_3` craft -> `applied=false reason=not_player`;
+  - autonomous zombie-mine, refugee-hive, and refugee-well production also -> `applied=false reason=not_player`;
+  - berry gathering itself executed as the game's zero-HP world-resource activity and did not enter the player craft-speed hook; only the subsequent `bush_1_berry_respawn` craft appeared, as non-player and unmodified. Garden carrot/wheat gathering showed the same outside-hook activity pattern; mushroom gathering likewise only produced a non-player respawn craft diagnostic;
+  - no `Well Fed craft-speed hook error` was present.
+- Energy-economy acceptance is not newly measured by this diagnostic log. It remains covered by the previously accepted exact-energy test for the unchanged `delta_time` mechanism, and 1.2.1 changes only current actor sourcing / exact overload resolution.
+- Player result: **requested 1.2.1 sequencing/scope runtime checks passed; stable promotion still awaits explicit user acceptance**.
+- Result: **candidate only; do not merge or publish before explicit user acceptance**.
 
 
 ## 1.2.1 Well Fed diagnostic — research-only handoff
@@ -57,4 +66,4 @@ Numbered binaries handed to the user are immutable. Candidate and accepted entri
 - Handed raw DLL: `Food & Drink Rebalance 1.2.1 DIAGNOSTIC.dll`, 46,592 bytes, SHA-256 `0e8e03d89f17c272c2fbd356c678a5642a5beba71f118891f9dd2505604c58c5`.
 - Requested runtime script: (1) one eligible manual craft without Well Fed; (2) same craft with Omelette/Well Fed; (3) one zombie/worker production action; (4) one excluded berry/bush world-resource action. Return the BepInEx log; no stopwatch is required.
 - Expected decisive lines: unbuffed eligible craft -> `applied=false multiplier=1.00 reason=well_fed_inactive`; buffed eligible craft -> `applied=true multiplier=2.00 reason=well_fed_active`; zombie/non-player -> `applied=false reason=not_player`; excluded berry/bush path, when it enters `CraftComponent.DoAction`, -> `applied=false reason=excluded_wgo:berry` or `excluded_wgo:bush`. If the world-resource action does not enter this hook, no craft diagnostic line for that action is expected.
-- Player result: **pending**.
+- Player result, 2026-09-19: **passed**. Diagnostic log proved the expected unbuffed/manual, Well Fed x2, zombie/non-player, and world-resource-outside-hook branches. No Well Fed hook error occurred.
