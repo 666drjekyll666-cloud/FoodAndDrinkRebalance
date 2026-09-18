@@ -1,103 +1,178 @@
-# Food & Drink Rebalance 1.2.1 — post-audit engineering pass
+# Food & Drink Rebalance 1.2.1 — audit closure
 
-Date: 2026-09-19
+Date: 2026-09-19  
+Status: **accepted stable engineering result**
 
-This pass starts from the accepted 1.2.0 runtime source (`95c96cce8d1e0d3c9f5e3208bc4deb0bce652a40`) and current `main`. The six later `main` commits are repository/release documentation and workflow maintenance; they do not change `src/GKFoodRebalancePlugin.cs`.
+This document closes the post-1.2.0 engineering audit that led to 1.2.1. It is intended to prevent future reviews from reopening already-investigated questions without new evidence. Future audits should start here, then consult `docs/VERIFIED_RUNTIME_DATA.md`, `docs/BALANCE_DESIGN.md`, and `docs/TEST_BUILD_LOG.md`.
 
-## Research verdict
+## Executive outcome
 
-| Current mechanism | Problem proven? | Better seam? | Behavior difference | Runtime cost | Save impact | Verdict |
-| --- | --- | --- | --- | --- | --- | --- |
-| Well Fed prefix reads `CraftComponent.other_obj` | **Yes.** GK 1.407 `DoAction` assigns `this.other_obj = other_obj` only after method entry; a Harmony prefix can therefore see null/stale actor state. | Inject the current `other_obj` argument into the prefix. | None intended; this corrects call context only. | Slightly cheaper: one reflective field read is removed. | None. | **Fix now.** |
-| Well Fed multiplies `delta_time` by x2 | No correctness problem. Exact-energy runtime testing already proved the completed craft retains vanilla total Energy. GK IL also passes the same `delta_time` to energy/sanity and progress paths. | No narrower equivalent seam is proven. `GetCraftCoeffForPlayer` alone would accelerate progress without scaling the energy slice. | Changing to craft coefficient would discount completed-craft Energy and change accepted gameplay. | Negligible arithmetic. | None. | **Keep `delta_time`.** |
-| Eligibility uses player check, `:r:` exclusion and bounded WGO-ID blacklist | No incorrect accepted case is proven. Native `DoAction` itself rejects player auto craft at entry, but the mod's additional scope exclusions encode accepted gameplay policy. | No verified semantic replacement currently covers the full accepted exclusion set. | A scope rewrite could expand/contract Well Fed unexpectedly. | Small string/LINQ cost per eligible call. | None. | **Keep scope unchanged in 1.2.1.** |
-| Well Fed state is read through reflection-heavy fallback helpers | **Cost exists**, but no performance defect is proven. `ReadNumericResource` may enumerate methods and allocate argument arrays in the recurring craft path. Food & Drink Rebalance 1.2.0 did not reproduce the investigated ~0.7 s freeze class in isolation. | Cache verified bindings or use a verified native resource getter, once its exact contract for the custom resource is established. | Should be none, but an incorrect cached/native seam could make Well Fed undetectable. | This is the main remaining hot-path hardening opportunity. | None. | **Defer from the sequencing fix; targeted hardening candidate.** |
-| Custom buffs use shallow template clones | No shared-mutation defect found in current code. Every mutable nested object that the mod changes is separated first: `length` is cloned; `res` is cloned; resource lists are replaced or cloned before mutation. | None needed for current fields. | None. | Startup only. | Native buff state only. | **Keep.** |
-| Fried Egg reduces `PlayerBuff.end_time` by one dose and calls native `RemoveBuff` for the last dose | No defect found. Existing GK 1.407 runtime IL establishes `end_time` as authoritative timer state; native timer UI reads it; `RemoveBuff` removes save-list state, resource effect, finish expression and redraws UI. Accepted 1.1.5 runtime testing confirmed one-dose then final-dose behavior. | No native “subtract duration” API is known. | Replacing it would add complexity without proven benefit. | Event-only. | Uses native active-buff/save state. | **Keep.** |
-| Localization postfix on `GJL.LoadLanguageResource` | No recurring-cost or reload defect found in accepted behavior. | None needed. | None. | Event-only. | None. | **Keep.** |
+The audit found **one proven runtime correctness defect** in the Well Fed crafting hook. It was fixed narrowly in 1.2.1 and verified in Graveyard Keeper 1.407.
 
-## Native sequencing evidence
+No balance redesign was required. The accepted x2.00 Well Fed multiplier, the `delta_time` acceleration seam, total craft-energy semantics, food/alcohol balance, custom buffs, timer arithmetic, and localization architecture were retained.
 
-Existing Graveyard Keeper 1.407 assembly IL in `SoulDLCRebalance-semantics-audit.txt` gives the exact method:
+The audit also identified several non-blocking hardening opportunities. They are recorded below as future work, not as known player-facing defects.
+
+## Proven defect: stale actor context in the Well Fed prefix
+
+### 1.2.0 behavior
+
+The Well Fed Harmony prefix patched `CraftComponent.DoAction`, but its classifier obtained the actor by reflectively reading `CraftComponent.other_obj`.
+
+Graveyard Keeper 1.407 IL proves the exact method is:
 
 `CraftComponent.DoAction(WorldGameObject other_obj, float delta_time, bool for_gratitude_points)`
 
-At method entry it checks `other_obj.is_player` and only later executes:
+The original method checks the current `other_obj` argument and only later assigns:
 
-- IL `002C`: load `this`;
-- IL `002D`: load current `other_obj` argument;
-- IL `002E`: store `CraftComponent.other_obj`.
+`this.other_obj = other_obj`
 
-A Harmony prefix necessarily executes before those original instructions. The 1.2.0 prefix therefore had a real sequencing bug because its helper read `__instance.other_obj` before the original method refreshed it.
+Because a Harmony prefix runs before the original method body, the field can still be null or contain the previous call's actor when the prefix executes. The 1.2.0 hook therefore had a real call-context sequencing bug.
 
-The same IL shows:
+Possible consequences included a false negative for a legitimate player craft or a stale-context false positive on a non-player call.
 
-- player `GetCraftCoeffForPlayer(out k)` is resolved separately;
-- `TrySpendPlayerEnergy(other_obj, delta_time)` receives the current `delta_time`;
-- `SpendPlayerSanity(other_obj, delta_time)` receives the current `delta_time`;
-- progress adds `k * delta_time / craft_time`.
+## Accepted 1.2.1 fix
 
-`TrySpendPlayerEnergy` separately computes the energy slice as evaluated craft Energy multiplied by `delta_time / craft_time` (then by tool energy coefficient when applicable). This is why the accepted `delta_time` acceleration preserves total Energy across the shorter real-time completion.
+The production change is deliberately narrow:
 
-## Well Fed scope trace
+1. resolve only the exact `DoAction(WorldGameObject, float, bool)` overload;
+2. inject the current call's `other_obj` argument into the Harmony prefix;
+3. pass that current actor directly into the existing manual-player classifier;
+4. remove the classifier's read of `CraftComponent.other_obj`;
+5. keep all accepted gameplay rules and the x2.00 `delta_time` multiplier unchanged.
 
-The current scope is now explicit:
+A focused source regression test in `tests/verify_craft_prefix.py` guards the exact overload, current-argument injection, absence of the stale field read, unchanged x2 multiplier, and unchanged `delta_time` acceleration.
 
-| Path | Current 1.2.1 behavior | Evidence / reason |
+## Why `delta_time` was kept
+
+The audit rechecked whether Well Fed should be implemented through a different craft coefficient hook.
+
+The existing Graveyard Keeper 1.407 IL shows the same `delta_time` reaches:
+
+- `TrySpendPlayerEnergy(other_obj, delta_time)`;
+- `SpendPlayerSanity(other_obj, delta_time)`;
+- craft progress, as `k * delta_time / craft_time`.
+
+`TrySpendPlayerEnergy` computes the current energy slice proportionally to `delta_time / craft_time`.
+
+Earlier accepted exact-energy testing measured the same `wooden_plank` total cost with and without Well Fed: 5 Energy in both cases. Therefore scaling `delta_time` accelerates real-time completion while preserving total vanilla craft Energy.
+
+A `GetCraftCoeffForPlayer`-only multiplier would not be equivalent: it would increase progress without increasing the per-slice energy path and would discount total craft Energy.
+
+**Closed conclusion:** keep the `delta_time` seam unless new runtime evidence contradicts this contract.
+
+## Runtime acceptance of 1.2.1
+
+A research-only diagnostic build was made from the 1.2.1 production code path. It added bounded decision logging only; it did not define a new gameplay implementation.
+
+Accepted runtime evidence on 2026-09-19 showed:
+
+| Scenario | Observed result |
+| --- | --- |
+| `wooden_plank_3` at `mf_workbench_2`, no Well Fed | eligible; multiplier 1.00; `delta_time` 0.0101 -> 0.0101 |
+| Same craft, Well Fed active | eligible; multiplier 2.00; `delta_time` 0.0085 -> 0.0170 |
+| `flour_from_wheat` at `cooking_table_2`, Well Fed active | eligible; multiplier 2.00; `delta_time` 0.0083 -> 0.0167 |
+| Zombie performing `wooden_plank_3` | non-player; multiplier 1.00; not accelerated |
+| Zombie mine production | non-player; not accelerated |
+| Refugee hive/well production | non-player; not accelerated |
+| Berry gathering | direct gather runs through the game's zero-HP world-resource activity path, outside the player craft-speed hook |
+| Carrot/wheat harvesting | same outside-hook world-resource activity pattern |
+| Mushroom gathering | direct gather outside the player craft-speed hook; later respawn craft is non-player |
+
+No Well Fed craft-speed hook error was emitted.
+
+This closes the changed actor-context wiring. The diagnostic log did not re-measure total completed-craft Energy; that property remains covered by the earlier exact-energy test because 1.2.1 does not change the `delta_time` mechanism.
+
+## Audited mechanisms and final verdicts
+
+| Area | Audit result | Final 1.2.1 decision |
 | --- | --- | --- |
-| Manual Keeper craft at a normal production station | **Accelerated x2** when Well Fed is active. | Current `other_obj` is the player, craft is present, and no exclusion matches. |
-| Player-side auto craft | **Not accelerated in effect.** | Native `DoAction` returns before progress for player `current_craft.is_auto`; the prefix may execute first, but the changed local `delta_time` is then unused by the original call. |
-| Hidden player craft | **Not accelerated in effect.** | Native `DoAction` similarly returns before progress for a hidden player craft. |
-| Zombie / linked worker / other non-player worker | **Not accelerated.** | The prefix now classifies the current call's `other_obj`; non-player actors fail the `is_player` check. This is the stale-context regression fixed in 1.2.1. |
-| Refugee/remote worker craft | **Not accelerated when actor is non-player.** | Same current-actor check. |
-| Recipe ID containing `:r:` | **Explicitly excluded.** | Existing accepted recipe-ID guard is unchanged. |
-| Garden / planting and listed world-resource families | **Explicitly excluded by current WGO-ID fragments.** | Existing blacklist is unchanged; it remains heuristic rather than a proven universal semantic flag. |
-| Manual removal / dismantling | **Not universally excluded.** | Native `GetCraftCoeffForPlayer` has an explicit removal path with coefficient 1. The mod has no generic `wgo.is_removing` exclusion, so a manual removal action can be accelerated unless its WGO ID hits an existing exclusion. Historical `destroy_wd_fence` testing demonstrated this class. |
-| Gratitude-point manual craft | **Currently accelerated if otherwise eligible.** | When `for_gratitude_points=true`, native `DoAction` sets craft coefficient 0.125 and skips player Energy/Sanity, but still advances progress with `delta_time`. The mod does not exclude this flag. The accepted balance docs do not separately define gratitude-craft policy, so changing it would be a gameplay-scope decision rather than a correctness fix. |
-| Tool-required manual craft | **Accelerated x2.** | Native `GetCraftCoeffForPlayer` resolves tool coefficient/efficiency; Well Fed scales the later shared `delta_time`. |
-| Manual craft without a tool | **Accelerated x2 when native craft coefficient resolves successfully.** | Same shared progress input. |
-| Paused / interrupted craft | **No persistent Well Fed mutation.** | The prefix only changes the current call's by-ref `delta_time`; it stores no craft state. Calls that do not reach native progress do not accumulate mod-side state. |
-| Completion boundary | **Uses vanilla finish path.** | Native code calls `FinishCurrentCraft` after progress reaches at least 1. The mod changes only the current time slice. The x2 candidate still requires the requested total-Energy runtime check at the completion boundary. |
-| Special station | **Eligible by default if it is a player manual craft and no existing exclusion matches.** | There is no broad special-station allowlist/denylist. |
+| Prefix actor source | Proven sequencing bug | **Fixed**: use current `other_obj` argument |
+| Harmony target resolution | Broad name-only resolution was unnecessarily weak | **Fixed**: exact `WorldGameObject, float, bool` overload |
+| Well Fed x2 multiplier | No defect found | **Keep** |
+| `delta_time` acceleration | Native path + exact-energy evidence support it | **Keep** |
+| Zombie/passive worker exclusion | Verified with current actor in runtime | **Keep** |
+| World-resource gathering | Tested berry/garden/mushroom gathering is outside the player craft-speed progress hook | **Keep architecture** |
+| Existing scope guards / WGO blacklist | No accepted-scope regression proven | **Keep** |
+| Shallow cloning of custom buff templates | No shared-mutation defect found; mutable nested data that is changed is separated first | **Keep** |
+| Fried Egg one-dose Sobering via `PlayerBuff.end_time` | Native timer/removal contract and prior runtime tests support it | **Keep** |
+| Localization postfix | Event-bound; no polling/reload defect found | **Keep** |
+| Well Fed resource lookup reflection | Recurring cost exists, but no measured player-facing defect | **Defer; hardening only if justified** |
 
-Two scope details are therefore design ambiguities, not bugs proven by this pass: gratitude-point manual crafting is currently included, and manual removal is not generically excluded. 1.2.1 intentionally preserves both behaviors.
+## Scope notes future audits should preserve
 
-## 1.2.1 production change
+- Manual Keeper workstation crafts are accelerated x2 when Well Fed is active and otherwise eligible.
+- Non-player workers are not accelerated.
+- Tested berry, carrot, wheat, and mushroom gathering actions are direct world-resource actions outside the player craft-speed progress path; background respawn/production crafts observed afterward are non-player.
+- Player auto/hidden craft paths return before native progress and therefore do not gain effective acceleration from the prefix's local `delta_time`.
+- Recipe IDs containing `:r:` and the existing WGO-family exclusions remain unchanged policy.
+- Manual removal/dismantling is **not generically excluded** by a semantic removal flag. It can remain eligible unless an existing exclusion matches. This was known during the audit and intentionally not changed because it is a gameplay-scope decision, not a proven regression.
+- `for_gratitude_points=true` manual crafts remain eligible when otherwise allowed. This also remains an explicit design ambiguity rather than a correctness defect.
+- Well Fed stores no per-craft state; interrupted/paused work does not leave mod-side craft-speed state behind.
 
-The 1.2.1 fix is deliberately narrow:
+Do not silently reinterpret the two design ambiguities above as bugs in a later audit. Reopen them only if gameplay design is intentionally being reconsidered.
 
-1. patch only the exact `DoAction(WorldGameObject, float, bool)` overload;
-2. inject the current call's `other_obj` into the Harmony prefix;
-3. pass that object to the existing manual-player classifier;
-4. remove the classifier's reflective read of `CraftComponent.other_obj`;
-5. keep x2 `delta_time`, accepted eligibility/exclusions, buffs, balance values and localization unchanged.
+## Remaining hardening backlog
 
-A focused source-contract regression test guards those properties in `tests/verify_craft_prefix.py`.
+These were investigated and **not release blockers** for 1.2.1:
 
-## Additional B-D findings
+### 1. Reflection cost in Well Fed resource lookup
 
-Three real hardening gaps remain, but none justifies broadening 1.2.1:
+`ReadNumericResource` can enumerate methods and allocate invocation arguments during relevant `DoAction` calls. This is the clearest remaining hot-path optimization opportunity.
 
-- **Recurring reflection cost:** `ReadNumericResource` can scan methods on each relevant `DoAction` call. This is avoidable work, but there is no measured player-facing performance defect and the exact preferred native/custom-resource getter has not yet been made a production contract.
-- **Numeric projection atomicity:** the older `ApplyNumericBalance` path mutates targets incrementally and generally does not prevalidate every expected old value before applying the module. On an unexpected modded baseline it can therefore partially project the existing accepted balance. This is a robustness issue, not a newly observed 1.407 failure.
-- **Pre-existing custom-ID validation:** `EnsureCustomBuffs` reuses an already present `gkfr_*` definition without validating its full shape. A namespace collision or stale foreign definition is unlikely but would not fail closed. The newer alcohol module is stricter.
+No player-facing performance problem has been measured, and the preferred native/custom-resource getter has not yet been established as a safer production contract. Optimize only after measuring or after verifying a narrower getter/cache seam.
 
-A fourth item remains an **evidence gap rather than a proven defect**: behavior when the mod is removed while a custom buff is active, or when a save contains an active custom buff but its definition is absent, has not been statically established here. Normal save/load with the mod installed uses native `PlayerBuff` state and the accepted 1.1.5/1.2.0 architecture.
+### 2. Numeric balance projection atomicity
 
-## Decision
+The older `ApplyNumericBalance` path mutates several targets incrementally rather than prevalidating every expected old value before the first mutation. Under an unexpected modded baseline this could partially apply the older balance module.
 
-**Keep current architecture + targeted bug fix.**
+This is a robustness gap, not an observed vanilla 1.407 defect. A future hardening pass may convert the older module to discover -> validate all -> apply -> verify.
 
-Do not replace the `delta_time` mechanism, change Well Fed gameplay scope, rewrite custom buffs, or add speculative performance machinery in 1.2.1.
+### 3. Existing custom-buff definition validation
 
-## Acceptance required before release
+`EnsureCustomBuffs` can reuse existing `gkfr_*` definitions without fully validating their shape. A namespace collision or stale foreign definition could therefore escape fail-closed validation.
 
-Static evidence is sufficient for the sequencing bug and energy-path choice. A short installed-game acceptance pass is still required for the changed Harmony call-context wiring:
+This is unlikely and unobserved, but it is a legitimate future hardening target.
 
-1. ordinary eligible manual workstation craft without Well Fed: vanilla speed and normal completion;
-2. same craft with one Omelette / Well Fed: approximately x2 completion speed;
-3. same craft: same total Keeper Energy with and without Well Fed;
-4. worker/zombie or passive/auto production remains unaffected;
-5. one excluded world/garden/removal-style action remains unaffected.
+### 4. Missing-definition/uninstall save behavior
 
-Active Well Fed/Inebriated save-reload does not need to be repeated solely because of this source change: 1.2.1 does not touch buff definitions, serialization, timer arithmetic or removal lifecycle. A separate uninstall/missing-definition test would be required only if that compatibility guarantee becomes an explicit target.
+Normal save/load with the mod installed relies on native `PlayerBuff` state and has accepted historical runtime evidence. Behavior when the mod is removed while a custom buff is active, or when a save contains the active buff but its definition is absent, remains an evidence gap.
+
+Do not claim that uninstall edge case is proven until it is directly investigated.
+
+## Performance / save-safety conclusion
+
+1.2.1 adds no background worker, permanent scan, per-frame global enumeration, file/network polling, or production hot-path logging.
+
+The stable Well Fed hook performs only the existing classification/resource lookup plus the x2 arithmetic when applicable. The temporary diagnostic logging used for acceptance is not part of the production candidate.
+
+The 1.2.1 fix introduces no new serialized state and does not change custom buff definitions or timer storage.
+
+## Canonical identities
+
+- Accepted production candidate source: `c638e83cacb71a2f079e6acdc418e6064748a0fa`
+- Frozen candidate: `candidate/1.2.1`
+- Candidate CI run: `35402538631`
+- Candidate artifact: `FoodAndDrinkRebalance-1.2.1` / artifact ID `10571102014`
+- Accepted DLL: `Food & Drink Rebalance 1.2.1.dll`
+- Accepted DLL SHA-256: `bc0550cdc0f11a690b86cf85e34303881b168bc1722c38e34c5a81cca860f84a`
+- Research diagnostic source: `3b704ca7566361f2efe427ca263ab2a785c84456`
+- Frozen diagnostic: `diagnostic/1.2.1-well-fed`
+- Diagnostic CI run: `35405962554`
+- Diagnostic DLL SHA-256: `0e8e03d89f17c272c2fbd356c678a5642a5beba71f118891f9dd2505604c58c5`
+
+The diagnostic DLL is research-only and must not be published as the stable release.
+
+## Final decision
+
+**Accept 1.2.1 as the stable correction.**
+
+The audit's correct endpoint is not a rewrite. It is the existing architecture plus the targeted current-actor fix and exact overload resolution.
+
+A future audit should treat the conclusions above as established evidence. Reopen a closed item only when at least one of the following is true:
+
+- Graveyard Keeper/runtime version changes;
+- production code affecting that mechanism changes;
+- new runtime evidence contradicts the recorded contract;
+- a measured performance or compatibility symptom justifies revisiting a deferred hardening item;
+- the gameplay design is intentionally changed.
