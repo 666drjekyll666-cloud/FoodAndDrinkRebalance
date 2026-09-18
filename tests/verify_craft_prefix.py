@@ -36,7 +36,7 @@ checks = [
     (
         "accepted x2 multiplier is unchanged",
         "private const float WellFedCraftSpeedMultiplier = 2.00f;" in source,
-    ),,
+    ),
     (
         "diagnostic build records applied/skip decisions",
         '"WELLFED_DIAGNOSTIC"' in source
