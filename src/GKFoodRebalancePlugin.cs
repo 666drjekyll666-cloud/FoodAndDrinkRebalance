@@ -14,7 +14,7 @@ namespace GKFoodRebalance
     {
         public const string PluginGuid = "nikich.graveyardkeeper.gkfoodrebalance";
         public const string PluginName = "Food & Drink Rebalance";
-        public const string PluginVersion = "1.2.0";
+        public const string PluginVersion = "1.2.1";
 
         private const string LegacyWellFedShortBuffId = "gkfr_wellfed_short";
         private const string LegacyWellFedLongBuffId = "gkfr_wellfed_long";
@@ -48,7 +48,7 @@ namespace GKFoodRebalance
         private void Awake()
         {
             Log = Logger;
-            Logger.LogInfo("Food & Drink Rebalance 1.2.0 loading.");
+            Logger.LogInfo("Food & Drink Rebalance 1.2.1 loading.");
 
             try
             {
@@ -1131,24 +1131,34 @@ namespace GKFoodRebalance
         private static void InstallCraftSpeedPatch()
         {
             Type craftType = FindType("CraftComponent");
+            Type worldGameObjectType = FindType("WorldGameObject");
             if (craftType == null) throw new InvalidOperationException("CraftComponent type missing.");
+            if (worldGameObjectType == null) throw new InvalidOperationException("WorldGameObject type missing.");
 
-            MethodInfo target = craftType.GetMethods(AnyInstance).FirstOrDefault(m => m.Name == "DoAction");
+            MethodInfo target = craftType.GetMethods(AnyInstance).FirstOrDefault(m =>
+            {
+                if (m.Name != "DoAction") return false;
+                ParameterInfo[] p = m.GetParameters();
+                return p.Length == 3 &&
+                       p[0].ParameterType == worldGameObjectType &&
+                       p[1].ParameterType == typeof(float) &&
+                       p[2].ParameterType == typeof(bool);
+            });
             MethodInfo prefix = typeof(GKFoodRebalancePlugin).GetMethod(nameof(CraftDoActionPrefix), AnyStatic);
             if (target == null || prefix == null)
-                throw new MissingMethodException("CraftComponent.DoAction patch target missing.");
+                throw new MissingMethodException("CraftComponent.DoAction(WorldGameObject, float, bool) patch target missing.");
 
             PatchMethod(PluginGuid + ".speed", target, prefix, null);
         }
 
-        private static void CraftDoActionPrefix(object __instance, ref float delta_time)
+        private static void CraftDoActionPrefix(object __instance, object other_obj, ref float delta_time)
         {
             try
             {
                 object player;
                 object currentCraft;
                 string craftId;
-                if (!TryGetManualPlayerCraft(__instance, out player, out currentCraft, out craftId)) return;
+                if (!TryGetManualPlayerCraft(__instance, other_obj, out player, out currentCraft, out craftId)) return;
                 if (IsWellFed(player)) delta_time *= WellFedCraftSpeedMultiplier;
             }
             catch (Exception ex)
@@ -1157,9 +1167,9 @@ namespace GKFoodRebalance
             }
         }
 
-        private static bool TryGetManualPlayerCraft(object craftComponent, out object player, out object currentCraft, out string craftId)
+        private static bool TryGetManualPlayerCraft(object craftComponent, object currentOtherObj, out object player, out object currentCraft, out string craftId)
         {
-            player = GetMember(craftComponent, "other_obj");
+            player = currentOtherObj;
             currentCraft = GetMember(craftComponent, "current_craft");
             craftId = currentCraft == null ? null : GetMember(currentCraft, "id") as string;
 
