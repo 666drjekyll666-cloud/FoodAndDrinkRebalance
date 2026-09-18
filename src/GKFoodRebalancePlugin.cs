@@ -1222,7 +1222,11 @@ namespace GKFoodRebalance
             player = currentOtherObj;
             currentCraft = GetMember(craftComponent, "current_craft");
             craftId = currentCraft == null ? null : GetMember(currentCraft, "id") as string;
-            wgoId = string.Empty;
+
+            object wgo = GetMember(craftComponent, "wgo");
+            wgoId = (GetMember(wgo, "obj_id") as string) ?? string.Empty;
+            string lower = wgoId.ToLowerInvariant();
+            string excludedFragment = ExcludedCraftWgoFragments.FirstOrDefault(fragment => lower.Contains(fragment));
 
             if (player == null)
             {
@@ -1238,7 +1242,7 @@ namespace GKFoodRebalance
 
             if (currentCraft == null)
             {
-                diagnosticReason = "no_current_craft";
+                diagnosticReason = excludedFragment == null ? "no_current_craft" : "excluded_wgo:" + excludedFragment;
                 return false;
             }
 
@@ -1248,10 +1252,6 @@ namespace GKFoodRebalance
                 return false;
             }
 
-            object wgo = GetMember(craftComponent, "wgo");
-            wgoId = (GetMember(wgo, "obj_id") as string) ?? string.Empty;
-            string lower = wgoId.ToLowerInvariant();
-            string excludedFragment = ExcludedCraftWgoFragments.FirstOrDefault(fragment => lower.Contains(fragment));
             if (excludedFragment != null)
             {
                 diagnosticReason = "excluded_wgo:" + excludedFragment;
