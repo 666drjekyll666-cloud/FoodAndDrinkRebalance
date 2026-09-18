@@ -12,7 +12,14 @@ checks = [
     ),
     (
         "prefix passes current other_obj to manual-craft classifier",
-        "TryGetManualPlayerCraft(__instance, other_obj, out player, out currentCraft, out craftId)" in source,
+        "TryGetManualPlayerCraft(" in source and
+        "__instance," in source and
+        "other_obj," in source and
+        "out player," in source and
+        "out currentCraft," in source and
+        "out craftId," in source and
+        "out diagnosticReason," in source and
+        "out wgoId)" in source,
     ),
     (
         "manual-craft classifier uses the supplied current actor",
@@ -29,6 +36,17 @@ checks = [
     (
         "accepted x2 multiplier is unchanged",
         "private const float WellFedCraftSpeedMultiplier = 2.00f;" in source,
+    ),,
+    (
+        "diagnostic build records applied/skip decisions",
+        '"WELLFED_DIAGNOSTIC"' in source
+        and '" applied="' in source
+        and '" reason="' in source,
+    ),
+    (
+        "diagnostic logging is bounded",
+        "private const int MaxCraftDiagnosticEntries = 64;" in source
+        and "CraftDiagnosticSeen.Count >= MaxCraftDiagnosticEntries" in source,
     ),
 ]
 
