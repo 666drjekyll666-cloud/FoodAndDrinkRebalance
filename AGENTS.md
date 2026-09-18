@@ -23,7 +23,7 @@ Prefer deterministic startup/event-bound mutations over polling. Avoid permanent
 
 ## Stable behavior baseline
 
-Public migration 1.2.0 is intended to preserve the accepted 1.1.6 gameplay behavior. Branding, project/assembly/DLL name, and version may change; gameplay constants, IDs, patch targets, localization behavior, and fail-closed validation must not change unintentionally.
+Public stable **1.2.1** preserves the accepted 1.1.6/1.2.0 gameplay balance. Its only runtime behavior correction is the Well Fed actor-context sequencing fix documented in `docs/POST_AUDIT_1.2.1.md`; gameplay constants, effect strengths/durations, eligibility policy, food/alcohol values, localization behavior, and fail-closed validation remain unchanged unless a later accepted version explicitly changes them.
 
 ## Git, builds, and acceptance
 
