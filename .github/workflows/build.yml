@@ -32,6 +32,9 @@ jobs:
           test -n "$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      - name: Verify craft-prefix sequencing contract
+        run: python3 tests/verify_craft_prefix.py
+
       - name: Restore
         run: dotnet restore FoodAndDrinkRebalance.csproj
 
