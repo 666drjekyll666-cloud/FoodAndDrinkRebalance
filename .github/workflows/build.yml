@@ -4,6 +4,9 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - research/well-fed-diagnostic-1.2.1
+  push:
+    branches:
       - dev/1.2.1
 
 permissions:
@@ -52,7 +55,7 @@ jobs:
           source='bin/Release/FoodAndDrinkRebalance.dll'
           test -f "$source"
           mkdir -p artifacts
-          target="artifacts/Food & Drink Rebalance ${{ steps.version.outputs.version }}.dll"
+          target="artifacts/Food & Drink Rebalance ${{ steps.version.outputs.version }} DIAGNOSTIC.dll"
           cp "$source" "$target"
           hash="$(sha256sum "$target" | awk '{print $1}')"
           echo "SHA-256: $hash"
@@ -61,7 +64,7 @@ jobs:
       - name: Upload candidate DLL
         uses: actions/upload-artifact@v4
         with:
-          name: FoodAndDrinkRebalance-${{ steps.version.outputs.version }}
-          path: artifacts/Food & Drink Rebalance ${{ steps.version.outputs.version }}.dll
+          name: FoodAndDrinkRebalance-${{ steps.version.outputs.version }}-diagnostic
+          path: artifacts/Food & Drink Rebalance ${{ steps.version.outputs.version }} DIAGNOSTIC.dll
           if-no-files-found: error
           retention-days: 7
