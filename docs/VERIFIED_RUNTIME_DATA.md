@@ -93,3 +93,18 @@ Reverified on 2026-09-19 from existing Graveyard Keeper 1.407 assembly IL captur
 - `TrySpendPlayerEnergy` computes energy for the current slice proportionally to `delta_time / craft_time`.
 
 Combined with the accepted exact-energy test (`wooden_plank` cost 5 Energy both unbuffed and with Well Fed), this confirms that multiplying `delta_time` remains the least-sufficient seam for faster real-time manual crafting while preserving vanilla total energy economics. Replacing this with a `GetCraftCoeffForPlayer`-only multiplier would alter that coupling and is not an equivalent implementation.
+
+### 1.2.1 runtime acceptance
+
+Accepted 2026-09-19 runtime diagnostics on the 1.2.1 production code path established:
+
+- manual `wooden_plank_3` at `mf_workbench_2` without Well Fed remained eligible but unmodified: multiplier 1.00 and `delta_time` 0.0101 -> 0.0101;
+- the same craft with `gkfr_wellfed` active received multiplier 2.00 and `delta_time` 0.0085 -> 0.0170;
+- `flour_from_wheat` at `cooking_table_2` independently confirmed the same Well Fed x2 path (0.0083 -> 0.0167);
+- a zombie performing `wooden_plank_3` was classified from the current call actor as non-player and was not accelerated;
+- zombie-mine, refugee-hive, and refugee-well background production were likewise non-player and unmodified;
+- direct berry gathering (`bush_1_berry`) and tested carrot/wheat harvesting execute through the game's zero-HP world-resource activity path rather than the player `CraftComponent.DoAction` progress hook; the later berry respawn craft is a non-player call and is unmodified;
+- mushroom gathering showed the same separation: the direct gather path is outside the player craft-speed hook and only the later respawn craft appeared as non-player;
+- no Well Fed craft-speed hook error was emitted.
+
+These observations close the 1.2.1 actor-context regression. They do not replace the earlier exact total-Energy test; energy semantics remain accepted from that unchanged `delta_time` implementation evidence.
