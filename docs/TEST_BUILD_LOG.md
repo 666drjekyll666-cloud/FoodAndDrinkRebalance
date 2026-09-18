@@ -51,8 +51,8 @@ Numbered binaries handed to the user are immutable. Candidate and accepted entri
 - Energy-economy acceptance is not newly measured by this diagnostic log. It remains covered by the previously accepted exact-energy test for the unchanged `delta_time` mechanism, and 1.2.1 changes only current actor sourcing / exact overload resolution.
 - Player result: **accepted on 2026-09-19** after the sequencing/scope diagnostic passed; user explicitly requested stable promotion, release publication, and documentation closure.
 - Accepted source freeze: `baseline/1.2.1-accepted` will preserve the exact accepted candidate source `c638e83cacb71a2f079e6acdc418e6064748a0fa`.
-- Publication: **approved; release workflow pending at this documentation commit**.
-- Result: **accepted stable; publish the exact accepted artifact bytes without rebuilding**.
+- Publication: GitHub Release `v1.2.1`, release `391844807`, publication workflow run `35406738435`, asset `573682785`; GitHub reports canonical asset `FoodAndDrinkRebalance.dll`, 44,544 bytes, SHA-256 `bc0550cdc0f11a690b86cf85e34303881b168bc1722c38e34c5a81cca860f84a`, identical to the accepted candidate bytes.
+- Result: **accepted stable and published**.
 
 
 ## 1.2.1 Well Fed diagnostic — research-only handoff
