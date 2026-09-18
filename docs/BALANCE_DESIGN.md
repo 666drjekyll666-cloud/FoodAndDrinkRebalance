@@ -87,4 +87,4 @@ Beer, Apple/Berry Ferment, Booze, tavern economy/quests, and alcohol production 
 
 ## Stable baseline
 
-Legacy stable 1.1.6 is the accepted gameplay baseline. Public 1.2.0 is an identity/package migration only; no balance changes are intended.
+Public **1.2.1** is the accepted stable gameplay/runtime line for Graveyard Keeper 1.407. It preserves the accepted 1.1.6/1.2.0 balance values and Well Fed x2.00 design. The 1.2.1 change is an engineering correctness fix to Well Fed actor-context resolution; it does not change the intended balance, duration, eligibility policy, or total craft-energy semantics. See `docs/POST_AUDIT_1.2.1.md` for the closed audit record and runtime acceptance evidence.
