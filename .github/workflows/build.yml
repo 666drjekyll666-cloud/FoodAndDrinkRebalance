@@ -5,9 +5,6 @@ on:
   push:
     branches:
       - research/well-fed-diagnostic-1.2.1
-  push:
-    branches:
-      - dev/1.2.1
 
 permissions:
   contents: read
