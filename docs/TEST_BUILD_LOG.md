@@ -26,7 +26,7 @@ Numbered binaries handed to the user are immutable. Candidate and accepted entri
 - Result: **accepted stable and published**.
 
 
-## 1.2.1 — candidate / runtime acceptance pending
+## 1.2.1 — accepted stable
 
 - Goal: correct the Well Fed `CraftComponent.DoAction` actor-context sequencing bug found by the post-audit review without changing balance or gameplay scope.
 - Proven root cause: GK 1.407 `DoAction(WorldGameObject other_obj, float delta_time, bool for_gratitude_points)` stores `this.other_obj = other_obj` only inside the original method. Harmony Prefix runs first, so the 1.2.0 helper could read null or stale `CraftComponent.other_obj`.
@@ -49,8 +49,10 @@ Numbered binaries handed to the user are immutable. Candidate and accepted entri
   - berry gathering itself executed as the game's zero-HP world-resource activity and did not enter the player craft-speed hook; only the subsequent `bush_1_berry_respawn` craft appeared, as non-player and unmodified. Garden carrot/wheat gathering showed the same outside-hook activity pattern; mushroom gathering likewise only produced a non-player respawn craft diagnostic;
   - no `Well Fed craft-speed hook error` was present.
 - Energy-economy acceptance is not newly measured by this diagnostic log. It remains covered by the previously accepted exact-energy test for the unchanged `delta_time` mechanism, and 1.2.1 changes only current actor sourcing / exact overload resolution.
-- Player result: **requested 1.2.1 sequencing/scope runtime checks passed; stable promotion still awaits explicit user acceptance**.
-- Result: **candidate only; do not merge or publish before explicit user acceptance**.
+- Player result: **accepted on 2026-09-19** after the sequencing/scope diagnostic passed; user explicitly requested stable promotion, release publication, and documentation closure.
+- Accepted source freeze: `baseline/1.2.1-accepted` will preserve the exact accepted candidate source `c638e83cacb71a2f079e6acdc418e6064748a0fa`.
+- Publication: **approved; release workflow pending at this documentation commit**.
+- Result: **accepted stable; publish the exact accepted artifact bytes without rebuilding**.
 
 
 ## 1.2.1 Well Fed diagnostic — research-only handoff
