@@ -2,6 +2,13 @@
 
 Only accepted user-facing releases are listed as stable.
 
+## 1.2.1 — accepted stable release
+
+- Fixed a Well Fed actor-context sequencing bug in the manual-crafting Harmony prefix: the hook now uses the current `CraftComponent.DoAction(WorldGameObject, float, bool)` `other_obj` argument instead of reading a field that can still contain null/stale state before the original method runs.
+- Narrowed the patch resolver to the exact Graveyard Keeper 1.407 `DoAction(WorldGameObject, float, bool)` overload.
+- Preserved the accepted x2.00 Well Fed multiplier, `delta_time` acceleration mechanism, total craft-energy semantics, gameplay scope/exclusions, food/alcohol balance, custom buffs, timers, and localization.
+- Runtime diagnostics confirmed unbuffed manual craft remains x1, Well Fed manual craft receives x2, the same craft performed by a zombie is not accelerated, and tested berry/garden world-resource gathering runs outside the player craft-speed hook.
+
 ## 1.2.0 — accepted public release
 
 - Renamed the public project and DLL to **Food & Drink Rebalance** / `FoodAndDrinkRebalance.dll`.
