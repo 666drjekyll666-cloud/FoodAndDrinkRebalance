@@ -2,6 +2,9 @@ name: Build Food & Drink Rebalance
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - dev/1.2.1
 
 permissions:
   contents: read
