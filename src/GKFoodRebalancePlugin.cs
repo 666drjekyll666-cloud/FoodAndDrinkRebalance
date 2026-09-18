@@ -38,6 +38,8 @@ namespace GKFoodRebalance
         private static MethodInfo _findBuffByIdMethod;
         private static MethodInfo _removeBuffMethod;
         private static Type _mainGameType;
+        private const int MaxCraftDiagnosticEntries = 64;
+        private static readonly HashSet<string> CraftDiagnosticSeen = new HashSet<string>(StringComparer.Ordinal);
 
         private static readonly string[] ExcludedCraftWgoFragments =
         {
@@ -48,7 +50,8 @@ namespace GKFoodRebalance
         private void Awake()
         {
             Log = Logger;
-            Logger.LogInfo("Food & Drink Rebalance 1.2.1 loading.");
+            Logger.LogInfo("Food & Drink Rebalance 1.2.1 DIAGNOSTIC loading.");
+            Logger.LogInfo("WELLFED_DIAGNOSTIC_READY mode=research-only max_unique_entries=" + MaxCraftDiagnosticEntries);
 
             try
             {
@@ -1155,11 +1158,51 @@ namespace GKFoodRebalance
         {
             try
             {
+                float deltaTimeIn = delta_time;
                 object player;
                 object currentCraft;
                 string craftId;
-                if (!TryGetManualPlayerCraft(__instance, other_obj, out player, out currentCraft, out craftId)) return;
-                if (IsWellFed(player)) delta_time *= WellFedCraftSpeedMultiplier;
+                string diagnosticReason;
+                string wgoId;
+                bool eligible = TryGetManualPlayerCraft(
+                    __instance,
+                    other_obj,
+                    out player,
+                    out currentCraft,
+                    out craftId,
+                    out diagnosticReason,
+                    out wgoId);
+
+                if (!eligible)
+                {
+                    LogCraftDiagnostic(
+                        player,
+                        craftId,
+                        wgoId,
+                        false,
+                        false,
+                        false,
+                        1.00f,
+                        deltaTimeIn,
+                        delta_time,
+                        diagnosticReason);
+                    return;
+                }
+
+                bool wellFed = IsWellFed(player);
+                if (wellFed) delta_time *= WellFedCraftSpeedMultiplier;
+
+                LogCraftDiagnostic(
+                    player,
+                    craftId,
+                    wgoId,
+                    true,
+                    wellFed,
+                    wellFed,
+                    wellFed ? WellFedCraftSpeedMultiplier : 1.00f,
+                    deltaTimeIn,
+                    delta_time,
+                    wellFed ? "well_fed_active" : "well_fed_inactive");
             }
             catch (Exception ex)
             {
@@ -1167,20 +1210,111 @@ namespace GKFoodRebalance
             }
         }
 
-        private static bool TryGetManualPlayerCraft(object craftComponent, object currentOtherObj, out object player, out object currentCraft, out string craftId)
+        private static bool TryGetManualPlayerCraft(
+            object craftComponent,
+            object currentOtherObj,
+            out object player,
+            out object currentCraft,
+            out string craftId,
+            out string diagnosticReason,
+            out string wgoId)
         {
             player = currentOtherObj;
             currentCraft = GetMember(craftComponent, "current_craft");
             craftId = currentCraft == null ? null : GetMember(currentCraft, "id") as string;
+            wgoId = string.Empty;
 
-            if (player == null || !GetBool(player, "is_player") || currentCraft == null) return false;
-            if (!string.IsNullOrEmpty(craftId) && craftId.Contains(":r:")) return false;
+            if (player == null)
+            {
+                diagnosticReason = "actor_null";
+                return false;
+            }
+
+            if (!GetBool(player, "is_player"))
+            {
+                diagnosticReason = "not_player";
+                return false;
+            }
+
+            if (currentCraft == null)
+            {
+                diagnosticReason = "no_current_craft";
+                return false;
+            }
+
+            if (!string.IsNullOrEmpty(craftId) && craftId.Contains(":r:"))
+            {
+                diagnosticReason = "excluded_craft_id";
+                return false;
+            }
 
             object wgo = GetMember(craftComponent, "wgo");
-            string wgoId = (GetMember(wgo, "obj_id") as string) ?? string.Empty;
+            wgoId = (GetMember(wgo, "obj_id") as string) ?? string.Empty;
             string lower = wgoId.ToLowerInvariant();
-            if (ExcludedCraftWgoFragments.Any(fragment => lower.Contains(fragment))) return false;
+            string excludedFragment = ExcludedCraftWgoFragments.FirstOrDefault(fragment => lower.Contains(fragment));
+            if (excludedFragment != null)
+            {
+                diagnosticReason = "excluded_wgo:" + excludedFragment;
+                return false;
+            }
+
+            diagnosticReason = "eligible";
             return true;
+        }
+
+        private static void LogCraftDiagnostic(
+            object actor,
+            string craftId,
+            string wgoId,
+            bool eligible,
+            bool wellFed,
+            bool applied,
+            float multiplier,
+            float deltaTimeIn,
+            float deltaTimeOut,
+            string reason)
+        {
+            if (Log == null) return;
+
+            string actorType = actor == null ? "null" : actor.GetType().Name;
+            string key =
+                actorType + "|" +
+                (craftId ?? string.Empty) + "|" +
+                (wgoId ?? string.Empty) + "|" +
+                eligible + "|" +
+                wellFed + "|" +
+                applied + "|" +
+                (reason ?? string.Empty);
+
+            lock (CraftDiagnosticSeen)
+            {
+                if (CraftDiagnosticSeen.Contains(key)) return;
+                if (CraftDiagnosticSeen.Count >= MaxCraftDiagnosticEntries) return;
+                CraftDiagnosticSeen.Add(key);
+            }
+
+            Log.LogInfo(
+                "WELLFED_DIAGNOSTIC" +
+                " actor=" + DiagnosticToken(actorType) +
+                " craft=" + DiagnosticToken(craftId) +
+                " wgo=" + DiagnosticToken(wgoId) +
+                " eligible=" + eligible.ToString().ToLowerInvariant() +
+                " well_fed=" + wellFed.ToString().ToLowerInvariant() +
+                " applied=" + applied.ToString().ToLowerInvariant() +
+                " multiplier=" + multiplier.ToString("0.00", CultureInfo.InvariantCulture) +
+                " delta_in=" + deltaTimeIn.ToString("0.0000", CultureInfo.InvariantCulture) +
+                " delta_out=" + deltaTimeOut.ToString("0.0000", CultureInfo.InvariantCulture) +
+                " reason=" + DiagnosticToken(reason));
+        }
+
+        private static string DiagnosticToken(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "<none>";
+            return value
+                .Replace(' ', '_')
+                .Replace('\t', '_')
+                .Replace('\r', '_')
+                .Replace('\n', '_');
         }
 
         private static bool IsWellFed(object player)
