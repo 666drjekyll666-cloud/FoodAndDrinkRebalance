@@ -42,3 +42,19 @@ Numbered binaries handed to the user are immutable. Candidate and accepted entri
 - Buff save/reload: not repeated for this candidate because 1.2.1 does not change buff definitions, `PlayerBuff.end_time`, native add/remove lifecycle, or serialization-related code. Uninstall/missing-custom-definition behavior remains a separate evidence gap, not a change in this candidate.
 - Player result: **pending**.
 - Result: **candidate only; do not merge or publish before player acceptance**.
+
+
+## 1.2.1 Well Fed diagnostic — research-only handoff
+
+- Purpose: remove stopwatch/visual-timing ambiguity from 1.2.1 runtime acceptance by logging the Well Fed craft hook's actual decision for each unique observed craft state.
+- Base production candidate: `candidate/1.2.1` at `c638e83cacb71a2f079e6acdc418e6064748a0fa`.
+- Diagnostic-only changes: bounded `WELLFED_DIAGNOSTIC` lines report actor/craft/workstation, eligibility, Well Fed state, whether x2 was applied, input/output `delta_time`, and the skip/apply reason. Repeated identical states are suppressed and diagnostics stop after 64 unique entries.
+- Gameplay/balance intent: unchanged from the 1.2.1 candidate; this is research instrumentation only and is not a release candidate.
+- Exact diagnostic source commit: `3b704ca7566361f2efe427ca263ab2a785c84456`.
+- Frozen diagnostic ref: `diagnostic/1.2.1-well-fed` at the same commit.
+- CI: run `35405962554`; build job `105795657944`; Release build succeeded with 0 compiler warnings / 0 errors and the craft-prefix regression contract passed.
+- Artifact: `FoodAndDrinkRebalance-1.2.1-diagnostic` (artifact `10572371300`).
+- Handed raw DLL: `Food & Drink Rebalance 1.2.1 DIAGNOSTIC.dll`, 46,592 bytes, SHA-256 `0e8e03d89f17c272c2fbd356c678a5642a5beba71f118891f9dd2505604c58c5`.
+- Requested runtime script: (1) one eligible manual craft without Well Fed; (2) same craft with Omelette/Well Fed; (3) one zombie/worker production action; (4) one excluded berry/bush world-resource action. Return the BepInEx log; no stopwatch is required.
+- Expected decisive lines: unbuffed eligible craft -> `applied=false multiplier=1.00 reason=well_fed_inactive`; buffed eligible craft -> `applied=true multiplier=2.00 reason=well_fed_active`; zombie/non-player -> `applied=false reason=not_player`; excluded berry/bush path, when it enters `CraftComponent.DoAction`, -> `applied=false reason=excluded_wgo:berry` or `excluded_wgo:bush`. If the world-resource action does not enter this hook, no craft diagnostic line for that action is expected.
+- Player result: **pending**.
