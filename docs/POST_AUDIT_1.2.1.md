@@ -39,6 +39,29 @@ The same IL shows:
 
 `TrySpendPlayerEnergy` separately computes the energy slice as evaluated craft Energy multiplied by `delta_time / craft_time` (then by tool energy coefficient when applicable). This is why the accepted `delta_time` acceleration preserves total Energy across the shorter real-time completion.
 
+## Well Fed scope trace
+
+The current scope is now explicit:
+
+| Path | Current 1.2.1 behavior | Evidence / reason |
+| --- | --- | --- |
+| Manual Keeper craft at a normal production station | **Accelerated x2** when Well Fed is active. | Current `other_obj` is the player, craft is present, and no exclusion matches. |
+| Player-side auto craft | **Not accelerated in effect.** | Native `DoAction` returns before progress for player `current_craft.is_auto`; the prefix may execute first, but the changed local `delta_time` is then unused by the original call. |
+| Hidden player craft | **Not accelerated in effect.** | Native `DoAction` similarly returns before progress for a hidden player craft. |
+| Zombie / linked worker / other non-player worker | **Not accelerated.** | The prefix now classifies the current call's `other_obj`; non-player actors fail the `is_player` check. This is the stale-context regression fixed in 1.2.1. |
+| Refugee/remote worker craft | **Not accelerated when actor is non-player.** | Same current-actor check. |
+| Recipe ID containing `:r:` | **Explicitly excluded.** | Existing accepted recipe-ID guard is unchanged. |
+| Garden / planting and listed world-resource families | **Explicitly excluded by current WGO-ID fragments.** | Existing blacklist is unchanged; it remains heuristic rather than a proven universal semantic flag. |
+| Manual removal / dismantling | **Not universally excluded.** | Native `GetCraftCoeffForPlayer` has an explicit removal path with coefficient 1. The mod has no generic `wgo.is_removing` exclusion, so a manual removal action can be accelerated unless its WGO ID hits an existing exclusion. Historical `destroy_wd_fence` testing demonstrated this class. |
+| Gratitude-point manual craft | **Currently accelerated if otherwise eligible.** | When `for_gratitude_points=true`, native `DoAction` sets craft coefficient 0.125 and skips player Energy/Sanity, but still advances progress with `delta_time`. The mod does not exclude this flag. The accepted balance docs do not separately define gratitude-craft policy, so changing it would be a gameplay-scope decision rather than a correctness fix. |
+| Tool-required manual craft | **Accelerated x2.** | Native `GetCraftCoeffForPlayer` resolves tool coefficient/efficiency; Well Fed scales the later shared `delta_time`. |
+| Manual craft without a tool | **Accelerated x2 when native craft coefficient resolves successfully.** | Same shared progress input. |
+| Paused / interrupted craft | **No persistent Well Fed mutation.** | The prefix only changes the current call's by-ref `delta_time`; it stores no craft state. Calls that do not reach native progress do not accumulate mod-side state. |
+| Completion boundary | **Uses vanilla finish path.** | Native code calls `FinishCurrentCraft` after progress reaches at least 1. The mod changes only the current time slice. The x2 candidate still requires the requested total-Energy runtime check at the completion boundary. |
+| Special station | **Eligible by default if it is a player manual craft and no existing exclusion matches.** | There is no broad special-station allowlist/denylist. |
+
+Two scope details are therefore design ambiguities, not bugs proven by this pass: gratitude-point manual crafting is currently included, and manual removal is not generically excluded. 1.2.1 intentionally preserves both behaviors.
+
 ## 1.2.1 production change
 
 The 1.2.1 fix is deliberately narrow:
