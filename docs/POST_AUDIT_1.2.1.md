@@ -152,6 +152,7 @@ The 1.2.1 fix introduces no new serialized state and does not change custom buff
 
 - Accepted production candidate source: `c638e83cacb71a2f079e6acdc418e6064748a0fa`
 - Frozen candidate: `candidate/1.2.1`
+- Accepted source freeze: `baseline/1.2.1-accepted` at `c638e83cacb71a2f079e6acdc418e6064748a0fa`
 - Candidate CI run: `35402538631`
 - Candidate artifact: `FoodAndDrinkRebalance-1.2.1` / artifact ID `10571102014`
 - Accepted DLL: `Food & Drink Rebalance 1.2.1.dll`
@@ -160,6 +161,9 @@ The 1.2.1 fix introduces no new serialized state and does not change custom buff
 - Frozen diagnostic: `diagnostic/1.2.1-well-fed`
 - Diagnostic CI run: `35405962554`
 - Diagnostic DLL SHA-256: `0e8e03d89f17c272c2fbd356c678a5642a5beba71f118891f9dd2505604c58c5`
+- Stable GitHub Release: `v1.2.1` / release ID `391844807`
+- Stable publication workflow: `35406738435`
+- Stable asset: `FoodAndDrinkRebalance.dll` / asset ID `573682785` / 44,544 bytes / SHA-256 `bc0550cdc0f11a690b86cf85e34303881b168bc1722c38e34c5a81cca860f84a`
 
 The diagnostic DLL is research-only and must not be published as the stable release.
 
