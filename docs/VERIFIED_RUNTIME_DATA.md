@@ -78,3 +78,18 @@ Verified Graveyard Keeper 1.407 runtime primitives:
 ## Timing compatibility
 
 Longer Days has been verified to stretch vanilla and custom buff timers through normal game timing. Food & Drink Rebalance follows vanilla timing semantics and does not independently compensate durations.
+
+
+## CraftComponent.DoAction sequencing and Well Fed input seam
+
+Reverified on 2026-09-19 from existing Graveyard Keeper 1.407 assembly IL captured in the read-only `SoulDLCRebalance-semantics-audit.txt` evidence:
+
+- exact method: `CraftComponent.DoAction(WorldGameObject other_obj, float delta_time, bool for_gratitude_points)`;
+- the method checks the current call's `other_obj` argument before assigning it to the component field;
+- `this.other_obj = other_obj` occurs only inside the original method body (IL `002C-002E`);
+- therefore a Harmony prefix runs before that assignment and must not use `CraftComponent.other_obj` as the actor for the current call;
+- the Well Fed prefix must consume the current `other_obj` method argument directly;
+- the same `delta_time` argument is passed to `TrySpendPlayerEnergy` and `SpendPlayerSanity`, and it is multiplied by the player craft coefficient in the progress increment;
+- `TrySpendPlayerEnergy` computes energy for the current slice proportionally to `delta_time / craft_time`.
+
+Combined with the accepted exact-energy test (`wooden_plank` cost 5 Energy both unbuffed and with Well Fed), this confirms that multiplying `delta_time` remains the least-sufficient seam for faster real-time manual crafting while preserving vanilla total energy economics. Replacing this with a `GetCraftCoeffForPlayer`-only multiplier would alter that coupling and is not an equivalent implementation.
